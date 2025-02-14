@@ -1,7 +1,7 @@
 use anyhow::{Result, Context};
 use chrono::Local;
 
-use log::{info, error};
+use log::{info};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 use tokio::time;
@@ -90,21 +90,19 @@ impl MeetingRecorder {
         let timestamp = Local::now().format("%Y%m%d_%H%M%S");
         let output_file = format!("{}/meeting_{}.mp4", self.output_dir, timestamp);
 
-        // Minimal FFmpeg settings for low resource usage
+        // FFmpeg settings for macOS
         let ffmpeg_args = vec![
-            "-f", "x11grab",
-            "-framerate", "10",         // Very low framerate
-            "-video_size", "800x600",   // Small resolution
-            "-i", ":0.0",
-            "-f", "pulse",
-            "-i", "v_speaker.monitor",
+            "-f", "avfoundation",
+            "-i", "1:0",              // "1" is screen, "0" is audio device
+            "-framerate", "10",       // Low framerate for efficiency
+            "-video_size", "800x600", // Small resolution
             "-c:v", "libx264",
             "-preset", "superfast",
-            "-crf", "35",              // High compression
+            "-crf", "35",            // High compression
             "-c:a", "aac",
-            "-ac", "1",                // Mono audio
-            "-ar", "22050",            // Low sample rate
-            "-b:a", "32k",             // Very low audio bitrate
+            "-ac", "1",              // Mono audio
+            "-ar", "22050",          // Low sample rate
+            "-b:a", "32k",           // Low audio bitrate
             "-y",
             &output_file
         ];
@@ -115,6 +113,8 @@ impl MeetingRecorder {
             .stderr(Stdio::null())
             .spawn()
             .context("Failed to start FFmpeg")?;
+
+        info!("Started recording to: {}", output_file);
 
         tokio::spawn(async move {
             let _ = child.wait();
