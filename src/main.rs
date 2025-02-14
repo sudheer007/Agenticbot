@@ -90,48 +90,34 @@ impl MeetingRecorder {
         let timestamp = Local::now().format("%Y%m%d_%H%M%S");
         let output_file = format!("{}/meeting_{}.mp4", self.output_dir, timestamp);
 
-        // Setup PulseAudio virtual device
-        Command::new("pactl")
-            .args(&["load-module", "module-virtual-sink", "sink_name=virtual_speaker"])
-            .spawn()
-            .context("Failed to create virtual sink")?;
-
-        Command::new("pactl")
-            .args(&["set-default-sink", "virtual_speaker"])
-            .spawn()
-            .context("Failed to set default sink")?;
-
-        // FFmpeg command for Linux screen and audio recording
+        // Minimal FFmpeg settings for low resource usage
         let ffmpeg_args = vec![
-            "-f", "x11grab",         // Use x11grab for screen capture
-            "-framerate", "30",
-            "-video_size", "1920x1080",
-            "-i", ":0.0",           // Display to capture
-            "-f", "pulse",          // Use PulseAudio for audio
-            "-i", "virtual_speaker.monitor",  // Capture from virtual speaker
-            "-c:v", "libx264",      // Video codec
-            "-preset", "ultrafast",
-            "-c:a", "aac",          // Audio codec
-            "-ac", "2",             // 2 audio channels
-            "-ar", "44100",         // Audio sample rate
-            "-y",                   // Overwrite output file
+            "-f", "x11grab",
+            "-framerate", "10",         // Very low framerate
+            "-video_size", "800x600",   // Small resolution
+            "-i", ":0.0",
+            "-f", "pulse",
+            "-i", "v_speaker.monitor",
+            "-c:v", "libx264",
+            "-preset", "superfast",
+            "-crf", "35",              // High compression
+            "-c:a", "aac",
+            "-ac", "1",                // Mono audio
+            "-ar", "22050",            // Low sample rate
+            "-b:a", "32k",             // Very low audio bitrate
+            "-y",
             &output_file
         ];
 
         let mut child = Command::new("ffmpeg")
             .args(&ffmpeg_args)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .spawn()
             .context("Failed to start FFmpeg")?;
 
-        info!("Started recording to: {}", output_file);
-
         tokio::spawn(async move {
-            match child.wait() {
-                Ok(status) => info!("Recording finished with status: {}", status),
-                Err(e) => error!("Recording error: {}", e),
-            }
+            let _ = child.wait();
         });
 
         Ok(())
