@@ -90,19 +90,21 @@ impl MeetingRecorder {
         let timestamp = Local::now().format("%Y%m%d_%H%M%S");
         let output_file = format!("{}/meeting_{}.mp4", self.output_dir, timestamp);
 
-        // FFmpeg settings for macOS
+        // FFmpeg settings optimized for Linux with minimal resource usage
         let ffmpeg_args = vec![
-            "-f", "avfoundation",
-            "-i", "1:0",              // "1" is screen, "0" is audio device
-            "-framerate", "10",       // Low framerate for efficiency
-            "-video_size", "800x600", // Small resolution
+            "-f", "x11grab",
+            "-framerate", "10",
+            "-video_size", "800x600",
+            "-i", ":0.0",
+            "-f", "pulse",
+            "-i", "v_speaker.monitor",
             "-c:v", "libx264",
             "-preset", "superfast",
-            "-crf", "35",            // High compression
+            "-crf", "35",
             "-c:a", "aac",
-            "-ac", "1",              // Mono audio
-            "-ar", "22050",          // Low sample rate
-            "-b:a", "32k",           // Low audio bitrate
+            "-ac", "1",
+            "-ar", "22050",
+            "-b:a", "32k",
             "-y",
             &output_file
         ];
