@@ -90,15 +90,31 @@ impl MeetingRecorder {
         let timestamp = Local::now().format("%Y%m%d_%H%M%S");
         let output_file = format!("{}/meeting_{}.mp4", self.output_dir, timestamp);
 
-        // FFmpeg command for macOS screen recording
+        // Setup PulseAudio virtual device
+        Command::new("pactl")
+            .args(&["load-module", "module-virtual-sink", "sink_name=virtual_speaker"])
+            .spawn()
+            .context("Failed to create virtual sink")?;
+
+        Command::new("pactl")
+            .args(&["set-default-sink", "virtual_speaker"])
+            .spawn()
+            .context("Failed to set default sink")?;
+
+        // FFmpeg command for Linux screen and audio recording
         let ffmpeg_args = vec![
-            "-f", "avfoundation",
-            "-i", "1:0",  // "1" is screen, "0" is default audio device
+            "-f", "x11grab",         // Use x11grab for screen capture
             "-framerate", "30",
-            "-c:v", "libx264",
+            "-video_size", "1920x1080",
+            "-i", ":0.0",           // Display to capture
+            "-f", "pulse",          // Use PulseAudio for audio
+            "-i", "virtual_speaker.monitor",  // Capture from virtual speaker
+            "-c:v", "libx264",      // Video codec
             "-preset", "ultrafast",
-            "-c:a", "aac",
-            "-y",
+            "-c:a", "aac",          // Audio codec
+            "-ac", "2",             // 2 audio channels
+            "-ar", "44100",         // Audio sample rate
+            "-y",                   // Overwrite output file
             &output_file
         ];
 

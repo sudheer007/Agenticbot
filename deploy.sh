@@ -47,3 +47,17 @@ Environment=DISPLAY=:0
 [Install]
 WantedBy=multi-user.target
 EOL
+
+# Configure PulseAudio
+cat > /etc/pulse/default.pa << EOL
+#!/usr/bin/pulseaudio -nF
+load-module module-native-protocol-unix
+load-module module-native-protocol-tcp auth-anonymous=1
+load-module module-virtual-sink sink_name=virtual_speaker
+load-module module-always-sink
+load-module module-loopback latency_msec=1
+set-default-sink virtual_speaker
+EOL
+
+# Restart PulseAudio
+systemctl --user restart pulseaudio
